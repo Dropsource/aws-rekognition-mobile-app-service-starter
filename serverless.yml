@@ -1,0 +1,155 @@
+service: aws-rekognition-mobile-app-service
+
+frameworkVersion: ">=1.1.0"
+
+plugins:
+  - serverless-aws-documentation
+
+custom:
+  bucket: your-bucket-here
+  dynamoDbTable: your-dynamo-table-here
+
+  documentation:
+    version: '1'
+    summary: 'Not Hotdog App Client API'
+    description: 'An API for the Not Hotdog app to interact with the AWS Rekogntion image-analysis backend'
+    resources:
+      -
+        path: "saveImage"
+        description: "Path used for uploading image for analysis"
+      -
+        path: "getImageTags"
+        description: "Path used for getting image tags for the given imageID"
+    models:
+      -
+        name: "saveImageRequest"
+        description: "an object containing image information"
+        contentType: "application/json"
+        schema:
+          type: object
+          properties:
+            imageData:
+              type: string
+              format: string
+            userName:
+              type: string
+              format: string
+            albumName:
+              type: string
+              format: string
+          required:
+            - imageData
+            - userName
+            - albumName
+      -
+        name: "getImageTagsResponse"
+        description: "an object containing image tag information for the request image id"
+        contentType: "application/json"
+        schema:
+          type: object
+          properties:
+            isHotDog:
+              type: boolean
+            imageTags:
+              type: string
+              format: string
+          required:
+            - isHotDog
+            - imageTags
+      -
+        name: "saveImageResponse"
+        description: "the response for saveImage requests"
+        contentType: "application/json"
+        schema:
+          type: object
+          properties:
+            imageID:
+              type: string
+              format: string
+          required:
+            - imageID
+      -
+          name: "awsError"
+          description: "an aws internal server error, usually with status code 502 (bad gateway)"
+          contentType: "application/json"
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+
+provider:
+  name: aws
+  runtime: nodejs6.10
+  stage: dev
+  region: us-west-2
+  memorySize: 128 # optional, in MB, default is 1024
+  timeout: 5 # optional, in seconds, default is 6
+  versionFunctions: false # optional, default is true
+  environment:
+    BUCKET: ${self:custom.bucket}
+    DYNAMODB_TABLE: ${self:custom.dynamoDbTable}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:PutObject
+      Resource: "arn:aws:s3:::${self:custom.bucket}/*"
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+      Resource: "your-dynamodb-table-arn-here"
+
+functions:
+  saveImage:
+    handler: handler.saveImage
+    events:
+      - http:
+          path: saveImage
+          method: put
+          documentation:
+            summary: "upload image data to S3"
+            requestBody:
+              description: "body containing base64 encoded imageData string"
+            requestModels:
+                "application/json": "saveImageRequest"
+            methodResponses:
+              -
+                statusCode: "200"
+                responseModels:
+                  "application/json": "saveImageResponse"
+              -
+                statusCode: "502"
+                responseModels:
+                  "application/json": "awsError"
+
+  getImageTags:
+    handler: handler.getImageTags
+    events:
+      - http:
+          path: getImageTags
+          method: get
+          parameters:
+            querystrings:
+              imageID: true
+          cors: true
+          documentation:
+            summary: "get image tag data by imageID"
+            queryParams:
+              -
+                name: "imageID"
+                required: true
+                description: "the id image to get tags for"
+            methodResponses:
+              -
+                statusCode: "200"
+                responseBody:
+                  description: "a string of imageTags and a boolean isHotDog property indicating if one of the tags is 'hot dog'"
+                responseModels:
+                  "application/json": "getImageTagsResponse"
+              -
+                statusCode: "502"
+                responseModels:
+                  "application/json": "awsError"
+

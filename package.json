@@ -1,0 +1,11 @@
+{
+  "name": "aws-rekognition-mobile-app-service",
+  "version": "1.0.0",
+  "dependencies": {
+    "aws-sdk": "^2.7.9",
+    "uuid": "^2.0.3"
+  },
+  "devDependencies": {
+    "serverless-aws-documentation": "^1.0.0"
+  }
+}
